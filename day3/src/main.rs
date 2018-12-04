@@ -12,7 +12,7 @@ struct Point {
     y: i64,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 struct Rectangle {
     x: i64,
     y: i64,
@@ -32,6 +32,8 @@ impl Rectangle {
         self.y1 - self.y
     }
 
+    // It turns out this was unnecessary.  That'll teach me to read and think more, eh?
+    // Leaving it here incase it's useful later.
     pub fn intersect(&self, other: &Rectangle) -> Option<Rectangle> {
         if self.x >= other.x1 || self.y >= other.y1 || other.x >= self.x1 || other.y >= self.y1 {
             return None;
@@ -46,7 +48,7 @@ impl Rectangle {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 struct Claim {
     id: i64,
     rect: Rectangle,
@@ -77,6 +79,21 @@ fn num_overlaps(claims: &Vec<Claim>) -> usize {
     overlaps
 }
 
+fn find_non_overlapping(claims: &Vec<Claim>) -> Option<i64> {
+    'outer: for c0 in claims {
+        'inner: for c1 in claims {
+            if c0 == c1 {
+                continue 'inner;
+            }
+            if let Some(_) = c0.rect.intersect(&c1.rect) {
+                continue 'outer;
+            }
+        }
+        return Some(c0.id);
+    }
+    None
+}
+
 fn parse_claim(s: &str) -> Result<Claim, text_io::Error> {
     let id: i64;
     let x: i64;
@@ -98,6 +115,7 @@ fn read<R: Read>(io: R) -> Result<Vec<Claim>, Error> {
 fn main() -> Result<(), Error> {
     let input = read(File::open("input.txt")?)?;
     println!("Pt 1 answer: {}", num_overlaps(&input));
+    println!("Pt 2 answer: {:?}", find_non_overlapping(&input));
     Ok(())
 }
 
@@ -141,5 +159,23 @@ mod test {
             parse_claim("#3 @ 5,5: 2x2").unwrap(),
         ];
         assert_eq!(4, num_overlaps(&claims));
+    }
+    #[test]
+    fn no_overlaps_test() {
+        let claims = vec![
+            parse_claim("#1 @ 1,3: 4x4").unwrap(),
+            parse_claim("#2 @ 3,1: 4x4").unwrap(),
+            parse_claim("#3 @ 5,5: 2x2").unwrap(),
+        ];
+        assert_eq!(Some(3), find_non_overlapping(&claims));
+    }
+
+    fn no_non_overlaps_test() {
+        let claims = vec![
+            parse_claim("#1 @ 1,3: 4x4").unwrap(),
+            parse_claim("#2 @ 3,1: 4x4").unwrap(),
+            parse_claim("#3 @ 4,4: 2x2").unwrap(),
+        ];
+        assert_eq!(None, find_non_overlapping(&claims));
     }
 }
