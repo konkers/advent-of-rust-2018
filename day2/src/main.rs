@@ -117,9 +117,7 @@ mod test {
         assert_eq!((true, false), analyze_id("abcdee"));
         assert_eq!((false, true), analyze_id("ababab"));
 
-        let strings = [
-            "abcdef", "bababc", "abbcde", "abcccd", "aabcdd", "abcdee", "ababab",
-        ]
+        let strings = ["abcdef", "bababc", "abbcde", "abcccd", "aabcdd", "abcdee", "ababab"]
             .iter()
             .map(|s| s.to_string())
             .collect();
@@ -132,9 +130,7 @@ mod test {
         assert_eq!(None, find_common("abcde", "axcye"));
         assert_eq!(Some("fgij".to_string()), find_common("fghij", "fguij"));
 
-        let strings = [
-            "abcde", "fghij", "klmno", "pqrst", "fguij", "axcye", "wvxyz",
-        ]
+        let strings = ["abcde", "fghij", "klmno", "pqrst", "fguij", "axcye", "wvxyz"]
             .iter()
             .map(|s| s.to_string())
             .collect();
