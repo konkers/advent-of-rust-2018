@@ -24,13 +24,6 @@ impl Rectangle {
     pub fn new(x: i64, y: i64, w: i64, h: i64) -> Rectangle {
         Rectangle { x: x, y: y, x1: x + w, y1: y + h }
     }
-    pub fn w(&self) -> i64 {
-        self.x1 - self.x
-    }
-
-    pub fn h(&self) -> i64 {
-        self.y1 - self.y
-    }
 
     // It turns out this was unnecessary.  That'll teach me to read and think more, eh?
     // Leaving it here incase it's useful later.
@@ -170,6 +163,7 @@ mod test {
         assert_eq!(Some(3), find_non_overlapping(&claims));
     }
 
+    #[test]
     fn no_non_overlaps_test() {
         let claims = vec![
             parse_claim("#1 @ 1,3: 4x4").unwrap(),

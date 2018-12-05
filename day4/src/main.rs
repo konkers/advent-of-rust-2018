@@ -200,10 +200,8 @@ fn find_most_slept_min_pt2(recs: &mut Vec<Record>) -> (i64, i64) {
         }
     }
 
-
     (sleepiest_id.unwrap(), max_min as i64)
 }
-
 
 fn read<R: Read>(io: R) -> Result<Vec<Record>, Error> {
     let br = BufReader::new(io);
