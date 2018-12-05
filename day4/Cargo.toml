@@ -1,0 +1,9 @@
+[package]
+name = "day4"
+version = "0.1.0"
+authors = ["Erik Gilling <konkers@google.com>"]
+
+[dependencies]
+chrono = "0.4.6"
+text_io = "0.1.7"
+regex = "1.1.0"
