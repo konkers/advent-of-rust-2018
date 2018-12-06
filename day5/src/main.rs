@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Error, Read};
@@ -33,6 +34,41 @@ fn process_poly(poly: &mut VecDeque<char>) -> usize {
     poly.len()
 }
 
+fn get_unique_units(poly: &VecDeque<char>) -> HashSet<char> {
+    let mut units = HashSet::new();
+
+    for c in poly {
+        let lower = c.to_lowercase().next().unwrap();
+        units.insert(lower);
+    }
+
+    units
+}
+
+fn remove_unit(poly: &VecDeque<char>, r: char) -> VecDeque<char> {
+    let lower = r.to_lowercase().next().unwrap();
+    let upper = r.to_uppercase().next().unwrap();
+
+    poly.iter().cloned().filter(|c| *c != lower && *c != upper).collect()
+}
+
+fn find_best_removal(poly: &VecDeque<char>) -> (char, usize) {
+    let units = get_unique_units(&poly);
+
+    let mut best_unit = None;
+    let mut best_len = poly.len();
+    for c in units {
+        let mut new_poly = remove_unit(&poly, c);
+        process_poly(&mut new_poly);
+        if new_poly.len() < best_len {
+            best_unit = Some(c);
+            best_len = new_poly.len();
+        }
+    }
+
+    (best_unit.unwrap(), best_len)
+}
+
 fn read<R: Read>(io: R) -> Result<VecDeque<char>, Error> {
     let br = BufReader::new(io);
     let mut p = String::new();
@@ -45,7 +81,10 @@ fn read<R: Read>(io: R) -> Result<VecDeque<char>, Error> {
 
 fn main() -> Result<(), Error> {
     let mut input = read(File::open("input.txt")?)?;
+    let input2 = input.clone();
     println!("Pt 1: {}", process_poly(&mut input));
+    let (unit, len) = find_best_removal(&input2);
+    println!("Pt 2: {}, {}", unit, len);
     Ok(())
 }
 
@@ -69,5 +108,31 @@ mod test {
         let l = process_poly(&mut poly);
         assert_eq!(10, l);
         assert_eq!(VecDeque::from(vec!('d', 'a', 'b', 'C', 'B', 'A', 'c', 'a', 'D', 'A')), poly);
+    }
+
+    #[test]
+    fn get_unique_units_test() {
+        let poly = parse_poly("dabAcCaCBAcCcaDA");
+        let u = get_unique_units(&poly);
+        let mut sorted: Vec<char> = u.iter().cloned().collect();
+        sorted.sort();
+
+        assert_eq!(vec!('a', 'b', 'c', 'd'), sorted);
+    }
+
+    #[test]
+    fn remove_unit_test() {
+        let poly = parse_poly("dabAcCaCBAcCcaDA");
+
+        assert_eq!(parse_poly("dbcCCBcCcD"), remove_unit(&poly, 'a'));
+        assert_eq!(parse_poly("daAcCaCAcCcaDA"), remove_unit(&poly, 'b'));
+        assert_eq!(parse_poly("dabAaBAaDA"), remove_unit(&poly, 'c'));
+        assert_eq!(parse_poly("abAcCaCBAcCcaA"), remove_unit(&poly, 'd'));
+    }
+
+    #[test]
+    fn find_best_removal_test() {
+        let poly = parse_poly("dabAcCaCBAcCcaDA");
+        assert_eq!(('c', 4), find_best_removal(&poly));
     }
 }
