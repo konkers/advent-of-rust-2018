@@ -5,3 +5,4 @@ authors = ["Erik Gilling <konkers@google.com>"]
 
 [dependencies]
 regex = "1.1.0"
+more-asserts = "0.2"
