@@ -1,4 +1,6 @@
 extern crate regex;
+#[macro_use]
+extern crate more_asserts;
 
 use regex::Regex;
 use std::cmp;
@@ -115,7 +117,7 @@ fn calc_finite_areas(coords: &Vec<Pt>) -> HashMap<Pt, i64> {
                         Some(n) => *n,
                         None => 0,
                     };
-                    areas.insert(owner, area+1);
+                    areas.insert(owner, area + 1);
                 }
             }
         }
@@ -139,6 +141,42 @@ fn calc_largest_finite_area(coords: &Vec<Pt>) -> (Pt, i64) {
     (max_pt.unwrap(), max_area)
 }
 
+fn calc_total_distance(pt: &Pt, coords: &Vec<Pt>) -> i64 {
+    let mut total = 0;
+    for c in coords {
+        total += c.dist(&pt);
+    }
+    total
+}
+
+fn verify_area_contained_in_bounding_box(points: &Vec<Pt>, limit: i64) {
+    let bounds = bounding_box(&points);
+    for x in bounds.p0.x..=bounds.p1.x {
+        assert_le!(limit, calc_total_distance(&Pt { x: x, y: bounds.p0.y }, &points));
+        assert_le!(limit, calc_total_distance(&Pt { x: x, y: bounds.p1.y }, &points));
+    }
+    for y in bounds.p0.y + 1..bounds.p1.y {
+        assert_le!(limit, calc_total_distance(&Pt { x: bounds.p0.x, y: y }, &points));
+        assert_le!(limit, calc_total_distance(&Pt { x: bounds.p1.x, y: y }, &points));
+    }
+}
+
+fn calc_area_size(points: &Vec<Pt>, limit: i64) -> i64 {
+    let bounds = bounding_box(&points);
+    let mut size = 0;
+
+    for x in bounds.p0.x + 1..bounds.p1.x {
+        for y in bounds.p0.y + 1..bounds.p1.y {
+            let pt = Pt { x: x, y: y };
+            let dist = calc_total_distance(&pt, &points);
+            if dist < limit {
+                size += 1;
+            }
+        }
+    }
+    size
+}
+
 fn read<R: Read>(io: R) -> Result<Vec<Pt>, Box<Error>> {
     let br = BufReader::new(io);
     let mut points = Vec::new();
@@ -151,7 +189,10 @@ fn read<R: Read>(io: R) -> Result<Vec<Pt>, Box<Error>> {
 
 fn main() -> Result<(), Box<Error>> {
     let input = read(File::open("input.txt")?)?;
+    let limit = 10000;
     println!("Pt 1 answer: {:?}", calc_largest_finite_area(&input));
+    verify_area_contained_in_bounding_box(&input, limit);
+    println!("Pt 2 answer: {:?}", calc_area_size(&input, limit));
     Ok(())
 }
 
@@ -228,4 +269,17 @@ mod test {
         let points = get_points();
         assert_eq!((Pt { x: 5, y: 5 }, 17), calc_largest_finite_area(&points));
     }
+
+    #[test]
+    fn calc_total_distance_test() {
+        let points = get_points();
+        assert_eq!(30, calc_total_distance(&Pt { x: 4, y: 3 }, &points));
+    }
+
+    #[test]
+    fn calc_area_size_test() {
+        let points = get_points();
+        assert_eq!(16, calc_area_size(&points, 32));
+    }
+
 }
