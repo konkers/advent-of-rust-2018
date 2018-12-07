@@ -5,6 +5,7 @@ use petgraph::graph::NodeIndex;
 use petgraph::visit::EdgeRef;
 use petgraph::Graph;
 use regex::Regex;
+use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::error::Error;
 use std::fs::File;
@@ -115,6 +116,162 @@ fn walk_graph(graph: &Graph<&str, ()>) -> String {
     output
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
+enum Worker {
+    Idle,
+    Working { node: NodeIndex, time: i64 },
+}
+
+impl PartialOrd for Worker {
+    fn partial_cmp(&self, other: &Worker) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Worker {
+    fn cmp(&self, other: &Worker) -> Ordering {
+        use Worker::*;
+        match (self, other) {
+            (Idle, Idle) => Ordering::Less,
+            (Idle, Working { node: _, time: _ }) => Ordering::Less,
+            (Working { node: _, time: _ }, Idle) => Ordering::Greater,
+            (Working { node: _, time: a }, Working { node: _, time: b }) => a.cmp(&b),
+        }
+    }
+}
+
+fn is_worker_idle(worker: &Worker) -> bool {
+    match worker {
+        Worker::Idle => true,
+        Worker::Working { node: _, time: _ } => false,
+    }
+}
+
+fn workers_idle(workers: &Vec<Worker>) -> bool {
+    for worker in workers {
+        if is_worker_idle(&worker) {
+            return true;
+        }
+    }
+    false
+}
+
+fn workers_working(workers: &Vec<Worker>) -> bool {
+    for worker in workers {
+        if !is_worker_idle(&worker) {
+            return true;
+        }
+    }
+    false
+}
+
+fn calc_cost(name: &str, fixed_cost: i64) -> i64 {
+    let mut b = name.bytes().next().unwrap();
+    b -= b'A';
+    b as i64 + 1 + fixed_cost
+}
+
+fn walk_graph2(graph: &Graph<&str, ()>, num_workers: usize, fixed_cost: i64) -> (i64, String) {
+    let mut output = String::new();
+    let mut available_nodes = BTreeMap::new();
+    let mut visited_nodes = HashSet::new();
+    let mut workers = vec![Worker::Idle; num_workers];
+    let mut global_time = 0;
+
+    for ni in graph.node_indices() {
+        let num_deps = graph
+            .neighbors_directed(ni, petgraph::Incoming)
+            .map(|i| *graph.node_weight(i).unwrap())
+            .count();
+        if num_deps == 0 {
+            available_nodes.insert(node_name(&graph, ni), ni);
+        }
+    }
+
+    while available_nodes.len() > 0 || workers_working(&workers) {
+        while available_nodes.len() > 0 && workers_idle(&workers) {
+            let worker = workers.iter_mut().min().unwrap();
+            if let Worker::Idle = worker {
+                let (name, ni) = {
+                    let (a, b) = available_nodes.iter().next().unwrap();
+                    (a.clone(), b.clone())
+                };
+                println!("{}: available nodes: {:?}", global_time, available_nodes.keys());
+                println!("{}: assigning {} to worker.", global_time, name);
+                *worker = Worker::Working { node: ni, time: calc_cost(name, fixed_cost) };
+                available_nodes.remove(name); // Worker owns the node now.
+            }
+        }
+
+        println!("{}: workers: {:?}.", global_time, workers);
+        let advance_time = {
+            let worker = workers.iter().filter(|w| !is_worker_idle(&w)).min();
+            match worker {
+                Some(Worker::Working { node: _, time: time_remaining }) => *time_remaining,
+                _ => 0,
+            }
+        };
+
+        println!(
+            "{}: advance time {}, idle {}, working {}",
+            global_time,
+            advance_time,
+            workers_idle(&workers),
+            workers_working(&workers)
+        );
+        if advance_time == 0 {
+            continue;
+        }
+
+        global_time += advance_time;
+
+        for w in workers.iter_mut() {
+            let idle = {
+                if let Worker::Working { node: ref ni, time: ref mut t } = w {
+                    *t -= advance_time;
+                    if *t < 0 {
+                        panic!("negative time!");
+                    }
+                    if *t == 0 {
+                        let name = node_name(&graph, *ni);
+                        output += name;
+                        println!("{}: {} done. {}", global_time, name, output);
+                        visited_nodes.insert(name.clone());
+                        for edge in graph.edges_directed(*ni, petgraph::Outgoing) {
+                            let child = edge.target();
+                            let mut avail = true;
+
+                            // Well this escalated quickly!
+
+                            for p_edge in graph.edges_directed(child, petgraph::Incoming) {
+                                let p_name = p_edge.source();
+                                if !visited_nodes.contains(node_name(&graph, p_name)) {
+                                    avail = false;
+                                    break;
+                                }
+                            }
+
+                            if avail {
+                                available_nodes.insert(node_name(&graph, child), child);
+                            }
+                        }
+                        true
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                }
+            };
+            if idle {
+                *w = Worker::Idle;
+            }
+        }
+    }
+
+    (global_time, output)
+}
+
 fn read<R: Read>(io: R) -> Result<Vec<Instruction>, Box<Error>> {
     let br = BufReader::new(io);
     let mut insts = Vec::new();
@@ -141,8 +298,10 @@ fn main() -> Result<(), Box<Error>> {
         println!("{:?}: {:?} {:?}", n, parents, children);
     }
 
+    let part2 = walk_graph2(&graph, 4, 60);
     println!("{:?}", graph.node_count());
     println!("Pt 1 answer: {:?}", walk_graph(&graph));
+    println!("Pt 2 answer: {:?}", part2.0);
 
     Ok(())
 }
@@ -199,5 +358,18 @@ mod test {
         let instructions = get_instructions();
         let graph = build_graph(&instructions);
         assert_eq!("CABDFE", walk_graph(&graph));
+    }
+
+    #[test]
+    fn calc_cost_test() {
+        assert_eq!(61, calc_cost("A", 60));
+        assert_eq!(86, calc_cost("Z", 60));
+    }
+
+    #[test]
+    fn walk_node2_test() {
+        let instructions = get_instructions();
+        let graph = build_graph(&instructions);
+        assert_eq!((15, "CABFDE".to_string()), walk_graph2(&graph, 2, 0));
     }
 }
