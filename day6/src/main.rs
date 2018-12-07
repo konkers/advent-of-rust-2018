@@ -41,7 +41,8 @@ fn parse_coord(s: &str) -> Result<Pt, Box<Error>> {
             return Err(io::Error::new(
                 ErrorKind::InvalidInput,
                 format!("Unrecognized record \"{}\"", s),
-            ).into())
+            )
+            .into())
         }
     };
 

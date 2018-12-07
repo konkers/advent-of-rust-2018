@@ -102,7 +102,8 @@ fn read<R: Read>(io: R) -> Result<Vec<Claim>, Error> {
     br.lines()
         .map(|line| {
             line.and_then(|s| parse_claim(&s).map_err(|e| Error::new(ErrorKind::InvalidData, e)))
-        }).collect()
+        })
+        .collect()
 }
 
 fn main() -> Result<(), Error> {
