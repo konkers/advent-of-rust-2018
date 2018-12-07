@@ -92,16 +92,32 @@ impl Ord for Worker {
     }
 }
 
-fn is_worker_idle(worker: &Worker) -> bool {
-    match worker {
-        Worker::Idle => true,
-        Worker::Working { node: _, time: _ } => false,
+impl Worker {
+    pub fn is_idle(&self) -> bool {
+        match self {
+            Worker::Idle => true,
+            Worker::Working { node: _, time: _ } => false,
+        }
+    }
+
+    pub fn start_work(&mut self, node: NodeIndex, time: i64) {
+        if !self.is_idle() {
+            panic!("Trying to assign work to non-idle worker");
+        }
+        *self = Worker::Working { node, time };
+    }
+
+    pub fn finish_work(&mut self) {
+        if self.is_idle() {
+            panic!("Trying to finish work of dle worker");
+        }
+        *self = Worker::Idle;
     }
 }
 
 fn workers_idle(workers: &Vec<Worker>) -> bool {
     for worker in workers {
-        if is_worker_idle(&worker) {
+        if worker.is_idle() {
             return true;
         }
     }
@@ -110,7 +126,7 @@ fn workers_idle(workers: &Vec<Worker>) -> bool {
 
 fn workers_working(workers: &Vec<Worker>) -> bool {
     for worker in workers {
-        if !is_worker_idle(&worker) {
+        if !worker.is_idle() {
             return true;
         }
     }
@@ -150,14 +166,14 @@ fn walk_graph(graph: &Graph<&str, ()>, num_workers: usize, fixed_cost: i64) -> (
                 };
                 println!("{}: available nodes: {:?}", global_time, available_nodes.keys());
                 println!("{}: assigning {} to worker.", global_time, name);
-                *worker = Worker::Working { node: ni, time: calc_cost(name, fixed_cost) };
+                worker.start_work(ni, calc_cost(name, fixed_cost));
                 available_nodes.remove(name); // Worker owns the node now.
             }
         }
 
         println!("{}: workers: {:?}.", global_time, workers);
         let advance_time = {
-            let worker = workers.iter().filter(|w| !is_worker_idle(&w)).min();
+            let worker = workers.iter().filter(|w| !w.is_idle()).min();
             match worker {
                 Some(Worker::Working { node: _, time: time_remaining }) => *time_remaining,
                 _ => 0,
@@ -216,7 +232,7 @@ fn walk_graph(graph: &Graph<&str, ()>, num_workers: usize, fixed_cost: i64) -> (
                 }
             };
             if idle {
-                *w = Worker::Idle;
+                w.finish_work();
             }
         }
     }
