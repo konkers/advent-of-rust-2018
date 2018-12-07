@@ -1,0 +1,8 @@
+[package]
+name = "day7"
+version = "0.1.0"
+authors = ["Erik Gilling <konkers@konkers.net>"]
+
+[dependencies]
+petgraph = "0.4.13"
+regex = "1.1.0"
