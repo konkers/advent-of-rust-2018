@@ -68,54 +68,6 @@ fn node_name<'a>(graph: &'a Graph<&str, ()>, node: NodeIndex) -> &'a str {
     *graph.node_weight(node).unwrap()
 }
 
-fn walk_graph(graph: &Graph<&str, ()>) -> String {
-    let mut output = String::new();
-    let mut available_nodes = BTreeMap::new();
-    let mut visited_nodes = HashSet::new();
-
-    for ni in graph.node_indices() {
-        let num_deps = graph
-            .neighbors_directed(ni, petgraph::Incoming)
-            .map(|i| *graph.node_weight(i).unwrap())
-            .count();
-        if num_deps == 0 {
-            available_nodes.insert(node_name(&graph, ni), ni);
-        }
-    }
-
-    while available_nodes.len() > 0 {
-        // Borrow checker hates me!!!
-        let (name, ni) = {
-            let (a, b) = available_nodes.iter().next().unwrap();
-            (a.clone(), b.clone())
-        };
-        available_nodes.remove(name);
-        visited_nodes.insert(name);
-        output += name;
-
-        for edge in graph.edges_directed(ni, petgraph::Outgoing) {
-            let child = edge.target();
-            let mut avail = true;
-
-            // Well this escalated quickly!
-
-            for p_edge in graph.edges_directed(child, petgraph::Incoming) {
-                let p_name = p_edge.source();
-                if !visited_nodes.contains(node_name(&graph, p_name)) {
-                    avail = false;
-                    break;
-                }
-            }
-
-            if avail {
-                available_nodes.insert(node_name(&graph, child), child);
-            }
-        }
-    }
-
-    output
-}
-
 #[derive(Debug, Clone, Eq, PartialEq)]
 enum Worker {
     Idle,
@@ -171,7 +123,7 @@ fn calc_cost(name: &str, fixed_cost: i64) -> i64 {
     b as i64 + 1 + fixed_cost
 }
 
-fn walk_graph2(graph: &Graph<&str, ()>, num_workers: usize, fixed_cost: i64) -> (i64, String) {
+fn walk_graph(graph: &Graph<&str, ()>, num_workers: usize, fixed_cost: i64) -> (i64, String) {
     let mut output = String::new();
     let mut available_nodes = BTreeMap::new();
     let mut visited_nodes = HashSet::new();
@@ -298,9 +250,10 @@ fn main() -> Result<(), Box<Error>> {
         println!("{:?}: {:?} {:?}", n, parents, children);
     }
 
-    let part2 = walk_graph2(&graph, 4, 60);
+    let part1 = walk_graph(&graph, 1, 0);
+    let part2 = walk_graph(&graph, 4, 60);
     println!("{:?}", graph.node_count());
-    println!("Pt 1 answer: {:?}", walk_graph(&graph));
+    println!("Pt 1 answer: {:?}", part1.1);
     println!("Pt 2 answer: {:?}", part2.0);
 
     Ok(())
@@ -354,10 +307,10 @@ mod test {
     }
 
     #[test]
-    fn walk_node_test() {
+    fn walk_node_2as1_test() {
         let instructions = get_instructions();
         let graph = build_graph(&instructions);
-        assert_eq!("CABDFE", walk_graph(&graph));
+        assert_eq!("CABDFE", walk_graph(&graph, 1, 0).1);
     }
 
     #[test]
@@ -370,6 +323,6 @@ mod test {
     fn walk_node2_test() {
         let instructions = get_instructions();
         let graph = build_graph(&instructions);
-        assert_eq!((15, "CABFDE".to_string()), walk_graph2(&graph, 2, 0));
+        assert_eq!((15, "CABFDE".to_string()), walk_graph(&graph, 2, 0));
     }
 }
