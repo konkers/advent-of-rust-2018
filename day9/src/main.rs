@@ -1,42 +1,66 @@
 #[macro_use]
 extern crate intrusive_collections;
 
+use intrusive_collections::linked_list::CursorMut;
 use intrusive_collections::{LinkedList, LinkedListLink};
+use std::cell::Cell;
 use std::error::Error;
-use std::fs::File;
-use std::io::{BufRead, BufReader, Read};
+
+struct Place {
+    link: LinkedListLink,
+    value: Cell<usize>,
+}
+
+intrusive_adapter!(CircleAdapter = Box<Place>: Place { link: LinkedListLink });
+
+fn next(cur: &mut CursorMut<CircleAdapter>) {
+    cur.move_next();
+    if let None = cur.get() {
+        cur.move_next();
+    }
+}
+
+fn prev(cur: &mut CursorMut<CircleAdapter>) {
+    cur.move_prev();
+    if let None = cur.get() {
+        cur.move_prev();
+    }
+}
 
 fn do_game(num_marbles: usize, players: usize) -> usize {
     let mut scores = vec![0; players];
-    let mut circle = vec![0, 1];
-    let mut cur = 1;
+    let mut circle = LinkedList::new(CircleAdapter::new());
     let mut player = 0;
 
-    for m in 2..=num_marbles {
-        if (m % 23) == 0 {
-            scores[player] += m;
-            for i in 0..7 {
-                if cur == 0 {
-                    cur = circle.len() - 1;
-                } else {
-                    cur -= 1;
-                }
-            }
-            scores[player] += circle[cur];
-            circle.remove(cur);
-        } else {
-            cur = (cur + 1) % (circle.len()) + 1;
-            circle.insert(cur, m);
-        }
-        player = (player + 1) % players;
-    }
+    circle.push_front(Box::new(Place { link: LinkedListLink::new(), value: Cell::new(0) }));
+    {
+        let mut cur = circle.front_mut();
 
-   // println!("{:?}", circle);
+        for m in 1..=num_marbles {
+            if (m % 23) == 0 {
+                scores[player] += m;
+                for _ in 0..7 {
+                    prev(&mut cur);
+                }
+                if let Some(p) = cur.get() {
+                    scores[player] += p.value.get();
+                }
+                cur.remove();
+            } else {
+                next(&mut cur);
+                cur.insert_after(Box::new(Place {
+                    link: LinkedListLink::new(),
+                    value: Cell::new(m),
+                }));
+                next(&mut cur);
+            }
+            player = (player + 1) % players;
+        }
+    }
     *scores.iter().max().unwrap()
 }
 
 fn main() -> Result<(), Box<Error>> {
-
     println!("Pt 1: {:?}", do_game(71944, 423));
     println!("Pt 2: {:?}", do_game(71944 * 100, 423));
 
@@ -49,11 +73,6 @@ mod test {
 
     #[test]
     fn do_game_test() {
-        //10 players; last marble is worth 1618 points: high score is 8317
-//13 players; last marble is worth 7999 points: high score is 146373
-//17 players; last marble is worth 1104 points: high score is 2764
-//21 players; last marble is worth 6111 points: high score is 54718
-//30 players; last marble is worth 5807 points: high score is 37305
         assert_eq!(32, do_game(25, 9));
         assert_eq!(8317, do_game(1618, 10));
         assert_eq!(146373, do_game(7999, 13));
